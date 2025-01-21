@@ -98,21 +98,6 @@
             opacity: 0.9;
         }
 
-        .daily-log {
-            background-color: rgba(var(--text-color), 0.05);
-            border-radius: 15px;
-            padding: 20px;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .log-entry {
-            display: flex;
-            justify-content: space-between;
-            padding: 15px;
-            border-bottom: 1px solid rgba(var(--text-color), 0.1);
-        }
-
         .modal {
             display: none;
             position: fixed;
@@ -123,6 +108,7 @@
             background-color: rgba(0, 0, 0, 0.5);
             justify-content: center;
             align-items: center;
+            z-index: 1000;
         }
 
         .modal-content {
@@ -130,24 +116,52 @@
             padding: 30px;
             border-radius: 15px;
             text-align: center;
-            max-width: 300px;
-            width: 90%;
+            max-width: 90%;
+            width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
         }
 
-        .modal-buttons {
+        .modal-header {
             display: flex;
-            gap: 10px;
-            margin-top: 20px;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(var(--text-color), 0.1);
         }
 
-        .permission-notice {
-            text-align: center;
-            padding: 20px;
-            background-color: #ff9800;
+        .close-button {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-color);
+            padding: 5px;
+        }
+
+        .daily-log {
+            max-height: 60vh;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .total-distance {
+            background-color: var(--primary-color);
             color: white;
-            margin-bottom: 20px;
+            padding: 15px;
             border-radius: 8px;
-            display: none;
+            margin: 10px 0;
+            text-align: center;
+            font-size: 1.2em;
+        }
+
+        .log-entry {
+            display: flex;
+            justify-content: space-between;
+            padding: 15px;
+            border-bottom: 1px solid rgba(var(--text-color), 0.1);
         }
     </style>
 </head>
@@ -169,187 +183,222 @@
         </div>
 
         <div class="button-container">
-            <button onclick="showDailyLog()">السجل اليومي</button>
+            <button onclick="showDailyLogModal()">السجل اليومي</button>
             <button onclick="showResetConfirmation()">إعادة تعيين</button>
         </div>
 
-        <div class="daily-log" id="dailyLog"></div>
-    </div>
-
-    <div class="modal" id="resetModal">
-        <div class="modal-content">
-            <h2>تأكيد إعادة التعيين</h2>
-            <p>هل أنت متأكد من رغبتك في مسح جميع البيانات المسجلة؟</p>
-            <div class="modal-buttons">
-                <button onclick="resetData()">نعم</button>
-                <button onclick="hideResetConfirmation()">إلغاء</button>
+        <!-- نافذة السجل اليومي -->
+        <div class="modal" id="dailyLogModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>السجل اليومي</h2>
+                    <button class="close-button" onclick="hideDailyLogModal()">&times;</button>
+                </div>
+                <div class="total-distance" id="totalDistance">
+                    إجمالي المسافات: 0.00 كم
+                </div>
+                <div class="daily-log" id="dailyLog"></div>
             </div>
         </div>
-    </div>
 
-    <script>
-        let currentDistance = 0;
-        let watchId = null;
-        let lastPosition = null;
-        let dailyLogs = {};
+        <!-- نافذة تأكيد إعادة التعيين -->
+        <div class="modal" id="resetModal">
+            <div class="modal-content">
+                <h2>تأكيد إعادة التعيين</h2>
+                <p>هل أنت متأكد من رغبتك في مسح جميع البيانات المسجلة؟</p>
+                <div class="modal-buttons">
+                    <button onclick="resetData()">نعم</button>
+                    <button onclick="hideResetConfirmation()">إلغاء</button>
+                </div>
+            </div>
+        </div>
 
-        // تحميل البيانات المحفوظة
-        function loadSavedData() {
-            const savedLogs = localStorage.getItem('dailyLogs');
-            if (savedLogs) {
-                dailyLogs = JSON.parse(savedLogs);
-            }
-            
-            const today = new Date().toLocaleDateString();
-            currentDistance = dailyLogs[today] || 0;
-            updateDistanceDisplay();
-            updateDailyLog();
-        }
+        <script>
+            let currentDistance = 0;
+            let watchId = null;
+            let lastPosition = null;
+            let dailyLogs = {};
 
-        // حفظ البيانات
-        function saveData() {
-            const today = new Date().toLocaleDateString();
-            dailyLogs[today] = currentDistance;
-            localStorage.setItem('dailyLogs', JSON.stringify(dailyLogs));
-            updateDailyLog();
-        }
-
-        // تحديث عرض المسافة
-        function updateDistanceDisplay() {
-            document.getElementById('currentDistance').textContent = currentDistance.toFixed(2);
-        }
-
-        // تحديث السجل اليومي
-        function updateDailyLog() {
-            const logElement = document.getElementById('dailyLog');
-            logElement.innerHTML = '';
-            
-            Object.entries(dailyLogs)
-                .sort((a, b) => new Date(b[0]) - new Date(a[0]))
-                .forEach(([date, distance]) => {
-                    const entry = document.createElement('div');
-                    entry.className = 'log-entry';
-                    entry.innerHTML = `
-                        <span>${date}</span>
-                        <span>${distance.toFixed(2)} كم</span>
-                    `;
-                    logElement.appendChild(entry);
-                });
-        }
-
-        // حساب المسافة باستخدام صيغة هافرساين
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371; // نصف قطر الأرض بالكيلومتر
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = 
-                Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-                Math.sin(dLon/2) * Math.sin(dLon/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
-        }
-
-        // تحديث الموقع
-        function updateLocation(position) {
-            if (lastPosition) {
-                const distance = calculateDistance(
-                    lastPosition.coords.latitude,
-                    lastPosition.coords.longitude,
-                    position.coords.latitude,
-                    position.coords.longitude
-                );
+            // تحميل البيانات المحفوظة
+            function loadSavedData() {
+                const savedLogs = localStorage.getItem('dailyLogs');
+                if (savedLogs) {
+                    dailyLogs = JSON.parse(savedLogs);
+                }
                 
-                if (distance > 0.001) { // تجاهل التغييرات الصغيرة جداً
-                    currentDistance += distance;
-                    updateDistanceDisplay();
-                    saveData();
+                const today = new Date().toLocaleDateString();
+                currentDistance = dailyLogs[today] || 0;
+                updateDistanceDisplay();
+                updateDailyLog();
+            }
+
+            // حفظ البيانات
+            function saveData() {
+                const today = new Date().toLocaleDateString();
+                dailyLogs[today] = currentDistance;
+                localStorage.setItem('dailyLogs', JSON.stringify(dailyLogs));
+                updateDailyLog();
+            }
+
+            // تحديث عرض المسافة
+            function updateDistanceDisplay() {
+                document.getElementById('currentDistance').textContent = currentDistance.toFixed(2);
+            }
+
+            // تحديث السجل اليومي
+            function updateDailyLog() {
+                const logElement = document.getElementById('dailyLog');
+                const totalElement = document.getElementById('totalDistance');
+                let totalDistance = 0;
+                
+                logElement.innerHTML = '';
+                
+                Object.entries(dailyLogs)
+                    .sort((a, b) => new Date(b[0]) - new Date(a[0]))
+                    .forEach(([date, distance]) => {
+                        totalDistance += distance;
+                        const entry = document.createElement('div');
+                        entry.className = 'log-entry';
+                        entry.innerHTML = `
+                            <span>${date}</span>
+                            <span>${distance.toFixed(2)} كم</span>
+                        `;
+                        logElement.appendChild(entry);
+                    });
+                
+                // تحديث إجمالي المسافات
+                totalElement.textContent = `إجمالي المسافات: ${totalDistance.toFixed(2)} كم`;
+            }
+
+            // حساب المسافة باستخدام صيغة هافرساين
+            function calculateDistance(lat1, lon1, lat2, lon2) {
+                const R = 6371; // نصف قطر الأرض بالكيلومتر
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLon = (lon2 - lon1) * Math.PI / 180;
+                const a = 
+                    Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                return R * c;
+            }
+
+            // تحديث الموقع
+            function updateLocation(position) {
+                if (lastPosition) {
+                    const distance = calculateDistance(
+                        lastPosition.coords.latitude,
+                        lastPosition.coords.longitude,
+                        position.coords.latitude,
+                        position.coords.longitude
+                    );
+                    
+                    if (distance > 0.001) { // تجاهل التغييرات الصغيرة جداً
+                        currentDistance += distance;
+                        updateDistanceDisplay();
+                        saveData();
+                    }
+                }
+                lastPosition = position;
+            }
+
+            // بدء تتبع الموقع
+            function startTracking() {
+                if ('geolocation' in navigator) {
+                    const options = {
+                        enableHighAccuracy: true,
+                        timeout: 5000,
+                        maximumAge: 0
+                    };
+                    
+                    watchId = navigator.geolocation.watchPosition(
+                        updateLocation,
+                        error => console.error('خطأ في تحديد الموقع:', error),
+                        options
+                    );
+                    
+                    document.getElementById('permissionNotice').style.display = 'none';
+                } else {
+                    document.getElementById('permissionNotice').style.display = 'block';
                 }
             }
-            lastPosition = position;
-        }
 
-        // بدء تتبع الموقع
-        function startTracking() {
-            if ('geolocation' in navigator) {
-                const options = {
-                    enableHighAccuracy: true,
-                    timeout: 5000,
-                    maximumAge: 0
-                };
-                
-                watchId = navigator.geolocation.watchPosition(
-                    updateLocation,
-                    error => console.error('خطأ في تحديد الموقع:', error),
-                    options
-                );
-                
-                document.getElementById('permissionNotice').style.display = 'none';
-            } else {
-                document.getElementById('permissionNotice').style.display = 'block';
+            // دوال عرض وإخفاء نافذة السجل اليومي
+            function showDailyLogModal() {
+                document.getElementById('dailyLogModal').style.display = 'flex';
+                updateDailyLog();
             }
-        }
 
-        // إظهار السجل اليومي
-        function showDailyLog() {
-            const logElement = document.getElementById('dailyLog');
-            logElement.style.display = logElement.style.display === 'none' ? 'block' : 'none';
-        }
+            function hideDailyLogModal() {
+                document.getElementById('dailyLogModal').style.display = 'none';
+            }
 
-        // إظهار تأكيد إعادة التعيين
-        function showResetConfirmation() {
-            document.getElementById('resetModal').style.display = 'flex';
-        }
+            // إظهار تأكيد إعادة التعيين
+            function showResetConfirmation() {
+                document.getElementById('resetModal').style.display = 'flex';
+            }
 
-        // إخفاء تأكيد إعادة التعيين
-        function hideResetConfirmation() {
-            document.getElementById('resetModal').style.display = 'none';
-        }
+            // إخفاء تأكيد إعادة التعيين
+            function hideResetConfirmation() {
+                document.getElementById('resetModal').style.display = 'none';
+            }
 
-        // إعادة تعيين البيانات
-        function resetData() {
-            currentDistance = 0;
-            dailyLogs = {};
-            localStorage.removeItem('dailyLogs');
-            updateDistanceDisplay();
-            updateDailyLog();
-            hideResetConfirmation();
-        }
-
-        // تبديل السمة (الوضع الليلي/النهاري)
-        function toggleTheme() {
-            const isDark = document.body.getAttribute('data-theme') === 'dark';
-            document.body.setAttribute('data-theme', isDark ? 'light' : 'dark');
-            localStorage.setItem('theme', isDark ? 'light' : 'dark');
-        }
-
-        // تهيئة التطبيق
-        window.onload = function() {
-            // تحميل السمة المحفوظة
-            const savedTheme = localStorage.getItem('theme') || 'light';
-            document.body.setAttribute('data-theme', savedTheme);
-            
-            loadSavedData();
-            startTracking();
-            
-            // إعادة تعيين المسافة في بداية كل يوم
-            const now = new Date();
-            const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-            const timeUntilMidnight = tomorrow - now;
-            
-            setTimeout(() => {
+            // إعادة تعيين البيانات
+            function resetData() {
                 currentDistance = 0;
+                dailyLogs = {};
+                localStorage.removeItem('dailyLogs');
                 updateDistanceDisplay();
-                saveData();
+                updateDailyLog();
+                hideResetConfirmation();
+            }
+
+            // تبديل السمة (الوضع الليلي/النهاري)
+            function toggleTheme() {
+                const isDark = document.body.getAttribute('data-theme') === 'dark';
+                document.body.setAttribute('data-theme', isDark ? 'light' : 'dark');
+                localStorage.setItem('theme', isDark ? 'light' : 'dark');
+            }
+
+            // إغلاق النوافذ المنبثقة عند النقر خارجها
+            window.onclick = function(event) {
+                const dailyLogModal = document.getElementById('dailyLogModal');
+                const resetModal = document.getElementById('resetModal');
                 
-                // إعداد إعادة التعيين اليومية
-                setInterval(() => {
+                if (event.target === dailyLogModal) {
+                    hideDailyLogModal();
+                } else if (event.target === resetModal) {
+                    hideResetConfirmation();
+                }
+            }
+
+            // تهيئة التطبيق
+            window.onload = function() {
+                // تحميل السمة المحفوظة
+                const savedTheme = localStorage.getItem('theme') || 'light';
+                document.body.setAttribute('data-theme', savedTheme);
+                
+                loadSavedData();
+                startTracking();
+                
+                // إعادة تعيين المسافة في بداية كل يوم
+                const now = new Date();
+                const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+                const timeUntilMidnight = tomorrow - now;
+                
+                setTimeout(() => {
                     currentDistance = 0;
                     updateDistanceDisplay();
                     saveData();
-                }, 24 * 60 * 60 * 1000);
-            }, timeUntilMidnight);
-        };
-    </script>
-</body>
+                    
+                    // إعداد إعادة التعيين اليومية
+                    setInterval(() => {
+                        currentDistance = 0;
+                        updateDistanceDisplay();
+                        saveData();
+                    }, 24 * 60 * 60 * 1000);
+                }, timeUntilMidnight);
+            };
+        </script>
+    </body>
 </html>
