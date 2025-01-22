@@ -332,7 +332,7 @@
                 dates.forEach(date => {
                     const entry = document.createElement('div');
                     entry.className = 'log-entry';
-                    const formattedDate = new Date(date).toLocaleDateString('ar-SA');
+                    const formattedDate = new Date(date).toLocaleDateString('en-GB'); // Format as DD/MM/YYYY
                     entry.innerHTML = `
                         <span>${formattedDate}</span>
                         <span>${dailyLog[date].toFixed(2)} كم</span>
@@ -368,8 +368,15 @@
                         totalDistance += distance;
                         
                         // تحديث سجل اليوم
-                        const today = new Date().toISOString().split('T')[0];
+                        const today = new Date().toLocaleDateString('en-GB'); // Format as DD/MM/YYYY
                         dailyLog[today] = (dailyLog[today] || 0) + distance;
+                        
+                        // Display success message
+                        const status = document.getElementById('status');
+                        status.textContent = 'تم تحديد موقعك بنجاح!';
+                        setTimeout(() => {
+                            status.style.display = 'none';
+                        }, 3000); // Hide after 3 seconds
                         
                         updateDistanceDisplay();
                         updateDailyLog();
@@ -379,6 +386,26 @@
                 
                 lastLat = latitude;
                 lastLon = longitude;
+            }
+
+            // معالجة الأخطاء
+            function handleError(error) {
+                let message = 'حدث خطأ في تحديد موقعك';
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        message = 'يرجى السماح بالوصول إلى موقعك لتتبع المسافة';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        message = 'موقعك غير متاح حالياً';
+                        break;
+                    case error.TIMEOUT:
+                        message = 'انتهت مهلة تحديد موقعك';
+                        break;
+                    case error.UNKNOWN_ERROR:
+                        message = 'حدث خطأ غير معروف';
+                        break;
+                }
+                showError(message);
             }
 
             // بدء تتبع الموقع
@@ -391,7 +418,7 @@
                     
                     const options = {
                         enableHighAccuracy: true,
-                        timeout: 5000,
+                        timeout: 10000, // 10 seconds timeout
                         maximumAge: 0
                     };
                     
@@ -400,28 +427,17 @@
                         handleError,
                         options
                     );
-                    
                     isTracking = true;
+                    
+                    // Set a timeout to handle cases where location is not retrieved
+                    setTimeout(() => {
+                        if (isTracking) {
+                            status.textContent = 'لم يتم تحديد موقعك. تأكد من السماح بالوصول إلى الموقع.';
+                        }
+                    }, options.timeout);
+                } else {
+                    showError('التتبع قيد التشغيل بالفعل أو الجغرافيا غير مدعومة.');
                 }
-            }
-
-            // معالجة الأخطاء
-            function handleError(error) {
-                let message = 'حدث خطأ في تحديد موقعك';
-                
-                switch(error.code) {
-                    case error.PERMISSION_DENIED:
-                        message = 'يرجى السماح بالوصول إلى موقعك لتتبع المسافة';
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        message = 'موقعك غير متاح حالياً';
-                        break;
-                    case error.TIMEOUT:
-                        message = 'انتهت مهلة تحديد موقعك';
-                        break;
-                }
-                
-                showError(message);
             }
 
             // عرض رسالة خطأ
